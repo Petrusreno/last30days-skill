@@ -38,15 +38,17 @@ def _reset_probe_caches():
     """The doctor stack memoizes probe results in module-level dicts (safe for
     the one-shot CLI process, wrong across tests). Clear them around every test
     so a probe cached by one test can never leak into another."""
-    from lib import grok_x, health, xurl_x
+    from lib import grok_x, health, reddit_arctic, xurl_x
 
     health.clear_dependency_probe_cache()
     xurl_x.clear_availability_cache()
     grok_x.clear_availability_cache()
+    reddit_arctic.reset_run_state()
     yield
     health.clear_dependency_probe_cache()
     xurl_x.clear_availability_cache()
     grok_x.clear_availability_cache()
+    reddit_arctic.reset_run_state()
 
 @pytest.fixture(autouse=True)
 def _reset_reddit_keyless_memo():

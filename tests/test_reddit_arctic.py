@@ -11,9 +11,9 @@ from lib import reddit_arctic
 def _no_arctic_network():
     # Override conftest's stub so this module exercises the real fetch_scores;
     # network is mocked per-test at http.get. Clear the in-run cache each time.
-    reddit_arctic._cache.clear()
+    reddit_arctic.reset_run_state()
     yield
-    reddit_arctic._cache.clear()
+    reddit_arctic.reset_run_state()
 
 
 def _resp(rows):

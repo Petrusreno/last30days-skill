@@ -14,7 +14,9 @@ unreachable host it returns ``{}`` so the caller shows the thread without a poin
 count rather than failing the Reddit source.
 """
 
+import re
 import sys
+import threading
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -26,7 +28,7 @@ SEARCH_API = "https://arctic-shift.photon-reddit.com/api/posts/search"
 BATCH = 50          # ids per request
 TIMEOUT = 15
 MAX_BATCHES = 3     # cap total requests per run (bounds latency + rate-limit risk)
-PACE_SECONDS = 0.4  # gap between batches; arctic-shift answers 422 "slow down"
+PACE_SECONDS = 2.0  # conservative shared spacing; not a provider SLA
 CACHE_MAX = 4096    # hard size bound so the in-run memo can never grow unbounded
 # Listing-lane knobs. Base limits mirror reddit_listing's DEPTH_LIMITS so callers
 # get the same per-depth volume. The supplement multiplier is applied when the
@@ -47,6 +49,55 @@ _LISTING_DEADLINE_SECONDS = 45  # ~3 subs at 15s timeout each
 # results, but capped at CACHE_MAX entries (never reached in a normal CLI run).
 # Tests clear it via reddit_arctic._cache.clear().
 _cache: Dict[str, Dict[str, int]] = {}
+_request_lock = threading.Lock()
+_next_request_at = 0.0
+_rate_blocked = False  # stop this CLI run after an explicit provider rate limit
+
+
+def reset_run_state() -> None:
+    """Clear the per-run memo, pacing clock and rate-limit latch.
+
+    Production never calls this (one CLI run == one process); tests do, so a
+    simulated 429 in one test cannot silence every later Arctic call."""
+    global _next_request_at, _rate_blocked
+    _cache.clear()
+    _next_request_at = 0.0
+    _rate_blocked = False
+
+
+def _get(url: str, *, deadline: float) -> Any:
+    """Serialize both endpoints; never retry a rate-limited Arctic request."""
+    global _next_request_at, _rate_blocked
+    remaining = deadline - time.monotonic()
+    if remaining <= 0 or not _request_lock.acquire(timeout=remaining):
+        http._raise(http.DeadlineExceeded())
+    try:
+        if _rate_blocked:
+            http._raise(http.HTTPError("ArcticShift paused after rate limit in this run",
+                                       outcome_state="rate-limited"))
+        delay = max(0.0, _next_request_at - time.monotonic())
+        if delay >= deadline - time.monotonic():
+            http._raise(http.DeadlineExceeded())
+        if delay:
+            time.sleep(delay)
+        if time.monotonic() >= deadline:
+            http._raise(http.DeadlineExceeded())
+        _next_request_at = time.monotonic() + PACE_SECONDS
+        try:
+            return http.get(url, headers={"User-Agent": http.BROWSER_USER_AGENT},
+                            timeout=min(TIMEOUT, deadline - time.monotonic()),
+                            retries=1, max_429_retries=0, deadline_monotonic=deadline)
+        except http.HTTPError as exc:
+            body = str(exc.body or "").lower()
+            if exc.status_code == 429 or (exc.status_code == 422 and re.search(
+                    r"\bslow down\b|\btoo many requests\b|\brate[ -]?limit", body)):
+                # The failure sink holds this same object. Keep the real HTTP
+                # code while correcting the semantic state for this provider.
+                exc.outcome_state = "rate-limited"
+                _rate_blocked = True
+            raise
+    finally:
+        _request_lock.release()
 
 
 def _log(msg: str) -> None:
@@ -72,15 +123,10 @@ def fetch_scores(post_ids: List[str]) -> Dict[str, Dict[str, int]]:
             todo.append(pid)
 
     batches = [todo[i:i + BATCH] for i in range(0, len(todo), BATCH)][:MAX_BATCHES]
-    for n, batch in enumerate(batches):
-        if n:
-            time.sleep(PACE_SECONDS)
+    deadline = time.monotonic() + TIMEOUT * MAX_BATCHES
+    for batch in batches:
         try:
-            data = http.get(
-                f"{API}?ids={','.join(batch)}",
-                headers={"User-Agent": http.BROWSER_USER_AGENT},
-                timeout=TIMEOUT,
-            )
+            data = _get(f"{API}?ids={','.join(batch)}", deadline=deadline)
         except Exception as e:  # network error / non-200 — degrade, never raise
             _log(f"lookup failed ({e}); {len(batch)} ids left unscored")
             break
@@ -188,30 +234,25 @@ def fetch_listings(
     out: List[Dict[str, Any]] = []
     # Process all requested subreddits with pacing and a total deadline to
     # prevent unbounded stalls when arctic is slow or unreachable.
-    deadline = time.time() + _LISTING_DEADLINE_SECONDS
+    deadline = time.monotonic() + _LISTING_DEADLINE_SECONDS
     fetched_count = 0
     for sub in subreddits:
-        if time.time() >= deadline:
+        if time.monotonic() >= deadline:
             _log(f"listing deadline reached after {fetched_count} subs; skipping remaining")
             break
         sub = sub.removeprefix("r/").strip()
         if not sub or sub.lower() == "all":
             continue
-        if fetched_count:
-            time.sleep(PACE_SECONDS)
         fetched_count += 1
         try:
             # Use retries=1 (single attempt) so retries don't exceed our deadline.
             # The deadline handles overall timing; per-request retries would
             # multiply the delay unpredictably.
-            data = http.get(
-                f"{SEARCH_API}?subreddit={sub}&limit={n}&sort=desc",
-                headers={"User-Agent": http.BROWSER_USER_AGENT},
-                timeout=TIMEOUT,
-                retries=1,
-            )
+            data = _get(f"{SEARCH_API}?subreddit={sub}&limit={n}&sort=desc", deadline=deadline)
         except Exception as e:  # network error / non-200 — degrade, never raise
             _log(f"listing search failed r/{sub}: {e}")
+            if _rate_blocked:
+                break
             continue
         rows = (data or {}).get("data")
         if not isinstance(rows, list):
