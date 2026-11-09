@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from tests._skill_doc import skill_contract_text
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL_MD = ROOT / "skills" / "last30days" / "SKILL.md"
 
 
 def _prose_flow() -> str:
-    text = SKILL_MD.read_text(encoding="utf-8")
+    text = skill_contract_text()
     start_marker = "### Non-Modal Prose Flow"
     # The Grok Bot Prose Flow (third Step 0 branch) sits between the prose
     # flow and the Manual Setup Guide; slice the prose flow alone.
@@ -51,7 +52,7 @@ def test_non_modal_completion_mentions_project_trust():
 
 
 def _step0_search_contract() -> str:
-    text = SKILL_MD.read_text(encoding="utf-8")
+    text = skill_contract_text()
     start_marker = "**STEP 0 - RESOLVE HOST WEB SEARCH FIRST.**"
     end_marker = "**FIRST-RUN GATE"
     start = text.find(start_marker)
@@ -79,7 +80,7 @@ def test_no_host_search_uses_auto_resolve_and_leaves_native_signal_unset():
 
 
 def _law8_block() -> str:
-    text = SKILL_MD.read_text(encoding="utf-8")
+    text = skill_contract_text()
     start = text.find("**LAW 8 -")
     assert start != -1, "missing LAW 8 marker"
     end = text.find("**LAW 9 -", start)
@@ -118,7 +119,7 @@ def test_law8_visible_url_hosts_exclude_cursor_and_split_from_step0():
     # named a visible-URL citation host anywhere. Cursor stays a NON-MODAL
     # SETUP host (see test_non_modal_hosts_are_named) - the citation renderer
     # is a different axis, and LAW 8 must not claim it is the Step 0 split.
-    text = SKILL_MD.read_text(encoding="utf-8")
+    text = skill_contract_text()
     visible_lists = re.findall(r"[Vv]isible-URL hosts? \(([^)]*)\)", text)
     assert visible_lists, "no visible-URL host list found"
     assert any("Codex" in hosts for hosts in visible_lists)
@@ -159,7 +160,7 @@ def test_citation_renderer_host_list_is_mirrored_outside_law8():
     # carry the same renderer split - Grok Bot / Cursor agent chat hidden-link,
     # Codex/Gemini CLI/raw CLI visible-URL - so a chunked read of any one
     # section cannot resurrect "Cursor is visible-URL".
-    text = SKILL_MD.read_text(encoding="utf-8")
+    text = skill_contract_text()
     law9_start = text.index("**LAW 9 -")
     law9 = text[law9_start : text.index("**LAW 10 -", law9_start)]
     assert "hidden-link host (Claude Code; Grok Bot / Cursor agent chat)" in law9
@@ -179,7 +180,7 @@ def test_plan_invocation_warns_against_bash_lc_apostrophe_wrapper():
     # Codex aborted its first engine run by wrapping the query-plan heredoc in
     # `bash -lc '...'`; the outer single quote ended at the first apostrophe in a
     # ranking string. The guidance must steer off that wrapper explicitly.
-    text = SKILL_MD.read_text(encoding="utf-8")
+    text = skill_contract_text()
     assert "bash -lc '...'" in text
     assert "unmatched" in text
 
@@ -188,7 +189,7 @@ def test_step055_documents_dedicated_vs_broad_subreddits():
     # Step 0.55 must instruct the model to split entity-home (dedicated) subs from
     # broad subs and pass them via --dedicated-subreddits, which the engine pulls
     # in full and exempts from the relevance floor.
-    text = SKILL_MD.read_text(encoding="utf-8")
+    text = skill_contract_text()
     assert "RESOLVED_DEDICATED_SUBREDDITS" in text
     assert "--dedicated-subreddits" in text
     assert "relevance floor" in text

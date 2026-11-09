@@ -71,7 +71,7 @@ esac
 # ---- Python 3.12+ resolution -------------------------------------------------
 LAST30DAYS_PYTHON="${LAST30DAYS_PYTHON:-}"
 
-try_python() {
+try_last30days_python() {
   candidate="$1"
   [ -n "$candidate" ] || return 1
   if [ -x "$candidate" ]; then
@@ -99,11 +99,11 @@ windows_path_to_unix() {
 if [ -n "$LAST30DAYS_PYTHON" ]; then
   preset="$LAST30DAYS_PYTHON"
   LAST30DAYS_PYTHON=""
-  try_python "$preset" || echo "WARN: LAST30DAYS_PYTHON=$preset is not a Python 3.12+ interpreter; searching instead." >&2
+  try_last30days_python "$preset" || echo "WARN: LAST30DAYS_PYTHON=$preset is not a Python 3.12+ interpreter; searching instead." >&2
 fi
 
 # Windows-style installs (Git Bash / MSYS): search the usual roots for python.exe.
-if [ -z "$LAST30DAYS_PYTHON" ]; then
+if [ -z "${LAST30DAYS_PYTHON:-}" ]; then
   roots=""
   [ -n "${LOCALAPPDATA:-}" ] && roots="$roots
 $(windows_path_to_unix "$LOCALAPPDATA")/Programs/Python"
@@ -112,26 +112,26 @@ $(windows_path_to_unix "$ProgramFiles")"
   pfx86="$(printenv 'ProgramFiles(x86)' 2>/dev/null || true)"
   [ -n "$pfx86" ] && roots="$roots
 $(windows_path_to_unix "$pfx86")"
-  while IFS= read -r root; do
-    [ -n "$root" ] && [ -d "$root" ] || continue
+  while IFS= read -r windows_python_root; do
+    [ -n "$windows_python_root" ] && [ -d "$windows_python_root" ] || continue
     while IFS= read -r py; do
-      try_python "$py" && break 2
+      try_last30days_python "$py" && break 2
     done <<EOF_PYTHON_CANDIDATES
-$(find "$root" -maxdepth 2 -type f -iname python.exe 2>/dev/null | sort -r)
+$(find "$windows_python_root" -maxdepth 2 -type f -iname python.exe 2>/dev/null | sort -r)
 EOF_PYTHON_CANDIDATES
   done <<EOF_ROOTS
 $roots
 EOF_ROOTS
 fi
 
-if [ -z "$LAST30DAYS_PYTHON" ]; then
+if [ -z "${LAST30DAYS_PYTHON:-}" ]; then
   for py in python3.14 python3.13 python3.12 python3 python; do
-    try_python "$py" && break
+    try_last30days_python "$py" && break
   done
 fi
 
 # uv fallback: hosts without a system 3.12 but with uv on PATH get a managed CPython 3.12.
-if [ -z "$LAST30DAYS_PYTHON" ] && command -v uv >/dev/null 2>&1; then
+if [ -z "${LAST30DAYS_PYTHON:-}" ] && command -v uv >/dev/null 2>&1; then
   uv_py="$(uv python find '>=3.12' 2>/dev/null)"
   if [ -z "$uv_py" ] || [ ! -x "$uv_py" ]; then
     echo "NOTE: no Python 3.12+ found; installing a managed CPython 3.12 via uv (~28MB, one-time)." >&2
@@ -141,13 +141,18 @@ if [ -z "$LAST30DAYS_PYTHON" ] && command -v uv >/dev/null 2>&1; then
       echo "WARN: 'uv python install 3.12' failed (network, disk space, or proxy?); falling through to the version-gate error below." >&2
     fi
   fi
-  try_python "$uv_py"
+  try_last30days_python "$uv_py"
 fi
 
-if [ -z "$LAST30DAYS_PYTHON" ]; then
+if [ -z "${LAST30DAYS_PYTHON:-}" ]; then
   echo "ERROR: last30days v3 requires Python 3.12+. Install Python 3.12+ or set LAST30DAYS_PYTHON to a supported interpreter." >&2
   exit 1
 fi
+
+"${LAST30DAYS_PYTHON}" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 12) else 1)' || {
+  echo "ERROR: LAST30DAYS_PYTHON must point to Python 3.12+." >&2
+  exit 1
+}
 
 # ---- optional keys, by NAME only ---------------------------------------------
 KEY_NAMES="SCRAPECREATORS_API_KEY OPENAI_API_KEY XAI_API_KEY X_BEARER_TOKEN OPENROUTER_API_KEY PERPLEXITY_API_KEY PARALLEL_API_KEY BRAVE_API_KEY EXA_API_KEY SERPER_API_KEY APIFY_API_TOKEN AUTH_TOKEN CT0 BSKY_HANDLE BSKY_APP_PASSWORD TRUTHSOCIAL_TOKEN XIAOHONGSHU_API_BASE"

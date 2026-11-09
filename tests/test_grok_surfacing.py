@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest import mock
 
 from lib import backends, doctor, health, quality_nudge
+from tests._skill_doc import skill_contract_text
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -123,7 +124,7 @@ def test_official_x_api_fragments_exist_and_changelog_is_untouched():
 # --- SKILL.md unlock surfaces ---------------------------------------------
 
 def _skill_md():
-    return (REPO / "skills" / "last30days" / "SKILL.md").read_text()
+    return skill_contract_text()
 
 
 def test_skill_md_does_not_check_grok_first():

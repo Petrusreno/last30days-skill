@@ -301,7 +301,7 @@ The wizard (Claude Code modal flow, non-modal prose flow, Grok Bot prose flow, m
 
 ---
 
-## Parse User Intent
+## CRITICAL: Parse User Intent
 
 Before doing anything, parse the user's input for:
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from tests._skill_doc import skill_contract_text
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIGURATION = ROOT / "CONFIGURATION.md"
@@ -13,7 +14,7 @@ UI_PY = ROOT / "skills" / "last30days" / "scripts" / "lib" / "ui.py"
 
 def test_cookie_setup_requires_explicit_allow_flag_in_docs():
     config = CONFIGURATION.read_text(encoding="utf-8")
-    skill = SKILL_MD.read_text(encoding="utf-8")
+    skill = skill_contract_text()
     assert "setup --allow-browser-cookies" in config
     assert "setup --allow-browser-cookies" in skill
     assert "Unset = no browser-cookie reads" in config
@@ -21,7 +22,7 @@ def test_cookie_setup_requires_explicit_allow_flag_in_docs():
 
 def test_project_config_trust_is_documented():
     config = CONFIGURATION.read_text(encoding="utf-8")
-    skill = SKILL_MD.read_text(encoding="utf-8")
+    skill = skill_contract_text()
     assert "LAST30DAYS_TRUST_PROJECT_CONFIG=1" in config
     assert "LAST30DAYS_TRUST_PROJECT_CONFIG=1" in skill
     assert "Folder-mode hosts such as Codex desktop do not trust hidden project config by default" in config
@@ -36,7 +37,7 @@ def test_codex_auth_not_advertised_as_openai_fallback():
 
 def test_preflight_permission_contract_is_documented():
     config = CONFIGURATION.read_text(encoding="utf-8")
-    skill = SKILL_MD.read_text(encoding="utf-8")
+    skill = skill_contract_text()
     readme = README.read_text(encoding="utf-8")
 
     for text in (config, skill, readme):
@@ -47,7 +48,7 @@ def test_preflight_permission_contract_is_documented():
 
 
 def test_security_copy_avoids_stale_cookie_and_endpoint_claims():
-    skill = SKILL_MD.read_text(encoding="utf-8")
+    skill = skill_contract_text()
     assert "no browser session access" not in skill
     assert "OpenAI key only goes to api.openai.com" not in skill
     assert "pass `--agent` for non-interactive report output" not in skill
@@ -59,7 +60,7 @@ def test_security_copy_avoids_stale_cookie_and_endpoint_claims():
 def test_security_copy_names_official_x_api_and_host_envelope():
     """The official X API v2 host and the host-provided --x-posts envelope are
     named in the Security section and the permissions overview."""
-    skill = SKILL_MD.read_text(encoding="utf-8")
+    skill = skill_contract_text()
     security = skill[skill.index("## Security & Permissions"):]
     assert "api.x.com" in security
     assert "X_BEARER_TOKEN" in security
@@ -74,7 +75,7 @@ def test_scrapecreators_copy_uses_canonical_free_call_count():
         [
             CONFIGURATION.read_text(encoding="utf-8"),
             README.read_text(encoding="utf-8"),
-            SKILL_MD.read_text(encoding="utf-8"),
+            skill_contract_text(),
             UI_PY.read_text(encoding="utf-8"),
         ]
     )

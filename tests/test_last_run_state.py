@@ -11,6 +11,7 @@ from unittest import mock
 
 import last30days as cli
 from lib import schema
+from tests._skill_doc import skill_contract_text
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 LAST30DAYS_SCRIPT = REPO_ROOT / "skills" / "last30days" / "scripts" / "last30days.py"
@@ -329,14 +330,14 @@ class TestSkillMdFirstRunReference(unittest.TestCase):
     """Verifies SKILL.md references that exist in the CLI."""
 
     def test_nux_wizard_not_referenced(self):
-        content = SKILL_MD.read_text(encoding="utf-8")
+        content = skill_contract_text()
         self.assertNotIn(
             "nux-wizard.md", content,
             "SKILL.md should not reference the missing nux-wizard.md file",
         )
 
     def test_skill_md_references_setup_command(self):
-        content = SKILL_MD.read_text(encoding="utf-8")
+        content = skill_contract_text()
         self.assertIn(
             "last30days.py setup", content,
             "SKILL.md should reference the Python setup subcommand",

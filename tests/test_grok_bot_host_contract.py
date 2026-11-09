@@ -15,6 +15,7 @@ from __future__ import annotations
 import re
 import unittest
 from pathlib import Path
+from tests._skill_doc import skill_contract_text
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL_MD = ROOT / "skills" / "last30days" / "SKILL.md"
@@ -58,7 +59,7 @@ HEREDOC_RE = re.compile(r"<<-?\s*([^\s]+)")
 
 
 def _text() -> str:
-    return SKILL_MD.read_text(encoding="utf-8")
+    return skill_contract_text()
 
 
 def _slice_between(text: str, start_marker: str, end_marker: str) -> str:
@@ -190,7 +191,9 @@ class TestGrokBotProseFlow(unittest.TestCase):
 
 class TestGuaranteedLoadedRule(unittest.TestCase):
     def setUp(self):
-        self.band = _guaranteed_band(_text())
+        # The guaranteed-loaded band is the first 420 lines of the real SKILL.md,
+        # not of the expanded contract (inlined references would push it down).
+        self.band = _guaranteed_band(SKILL_MD.read_text(encoding="utf-8"))
 
     def test_rule_lives_in_the_guaranteed_loaded_band(self):
         self.assertIn("LAST30DAYS_HOST=grok-bot", self.band)

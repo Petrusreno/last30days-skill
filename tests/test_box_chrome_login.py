@@ -12,6 +12,7 @@ from unittest import mock
 
 import box_chrome_login as bcl
 from lib import chrome_cdp
+from tests._skill_doc import skill_contract_text
 
 REPO = Path(__file__).resolve().parent.parent
 SKILL = REPO / "skills" / "last30days" / "SKILL.md"
@@ -168,7 +169,7 @@ def test_linux_and_mac_mini_recipe_unchanged_without_host_signal():
 
 
 def _skill():
-    return SKILL.read_text()
+    return skill_contract_text()
 
 
 def test_skill_md_references_helper_in_flows_and_repair():

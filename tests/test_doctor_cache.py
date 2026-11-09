@@ -27,6 +27,7 @@ from unittest import mock
 
 import last30days as cli
 from lib import doctor, health
+from tests._skill_doc import skill_contract_text
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL_MD = ROOT / "skills" / "last30days" / "SKILL.md"
@@ -607,7 +608,7 @@ class DoctorSkillContract(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.text = SKILL_MD.read_text(encoding="utf-8")
+        cls.text = skill_contract_text()
 
     def test_doctor_trigger_phrases_present(self):
         for phrase in (

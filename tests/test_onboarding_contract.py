@@ -18,6 +18,7 @@ import unittest
 from pathlib import Path
 
 from lib import setup_wizard
+from tests._skill_doc import skill_contract_text
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL_MD = ROOT / "skills" / "last30days" / "SKILL.md"
@@ -26,7 +27,7 @@ AGENTS_MD = ROOT / "AGENTS.md"
 
 class TestOnboardingContract(unittest.TestCase):
     def setUp(self):
-        self.text = SKILL_MD.read_text(encoding="utf-8")
+        self.text = skill_contract_text()
         # Scope assertions to Step 0 so generic substrings elsewhere in the file
         # do not satisfy ordering/presence checks.
         start = self.text.index("## Step 0: First-Run Setup Wizard")
